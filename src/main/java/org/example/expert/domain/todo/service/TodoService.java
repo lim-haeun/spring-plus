@@ -5,6 +5,7 @@ import org.example.expert.client.WeatherClient;
 import org.example.expert.domain.common.dto.AuthUser;
 import org.example.expert.domain.common.exception.InvalidRequestException;
 import org.example.expert.domain.todo.dto.request.TodoSaveRequest;
+import org.example.expert.domain.todo.dto.request.TodoSearchRequest;
 import org.example.expert.domain.todo.dto.response.TodoResponse;
 import org.example.expert.domain.todo.dto.response.TodoSaveResponse;
 import org.example.expert.domain.todo.entity.Todo;
@@ -16,6 +17,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
@@ -48,10 +52,26 @@ public class TodoService {
         );
     }
 
-    public Page<TodoResponse> getTodos(int page, int size) {
+    public Page<TodoResponse> getTodos(int page, int size, TodoSearchRequest request) {
         Pageable pageable = PageRequest.of(page - 1, size);
 
-        Page<Todo> todos = todoRepository.findAllByOrderByModifiedAtDesc(pageable);
+        // 시작일이 있으면 해당 날짜부터 검색
+        LocalDateTime startDateTime = request.getStartDate() != null
+                ? request.getStartDate().atStartOfDay()
+                : null;
+
+        // 종료일이 있으면 해당 날짜까지 포함해서 검색
+        LocalDateTime endDateTime = request.getEndDate() != null
+                ? request.getEndDate().atTime(LocalTime.MAX)
+                : null;
+
+        // weather, startDate, endDate 조건으로 투두 검색
+        Page<Todo> todos = todoRepository.searchTodos(
+                request.getWeather(),
+                startDateTime,
+                endDateTime,
+                pageable
+        );
 
         return todos.map(todo -> new TodoResponse(
                 todo.getId(),
